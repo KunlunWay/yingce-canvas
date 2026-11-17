@@ -16,6 +16,15 @@ import (
 
 const oidcStateCookie = "__Host-yingce-oidc-state"
 
+// __Host- 前缀与 Secure 在 http 下会被浏览器拒收；影子联调（CANVAS_OIDC_INSECURE_HOSTS）
+// 降级为普通 Cookie 名且不强制 Secure。读写必须使用同一名称。生产不设置该变量。
+func oidcStateCookieName() string {
+	if os.Getenv("CANVAS_OIDC_INSECURE_HOSTS") != "" {
+		return "yingce-oidc-state"
+	}
+	return oidcStateCookie
+}
+
 func registerOIDCRoutes(r *gin.RouterGroup, svc *service.Service) {
 	r.GET("/auth/oidc/start", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
@@ -42,7 +51,7 @@ func registerOIDCRoutes(r *gin.RouterGroup, svc *service.Service) {
 			return
 		}
 		state := c.Query("state")
-		cookie, err := c.Request.Cookie(oidcStateCookie)
+		cookie, err := c.Request.Cookie(oidcStateCookieName())
 		if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(state)) != 1 {
 			failService(c, kernel.BadAuthRequest("OIDC 登录状态与当前浏览器不匹配，请重新登录"))
 			return
@@ -66,16 +75,9 @@ func registerOIDCRoutes(r *gin.RouterGroup, svc *service.Service) {
 
 // 回调只能使用发起登录的浏览器中保存的状态，避免登录 CSRF。
 func setOIDCStateCookie(c *gin.Context, value string, maxAge int) {
-	name := oidcStateCookie
-	secure := true
-	// __Host- 前缀与 Secure 在 http 下会被浏览器拒收；影子联调（白名单主机 http OIDC）
-	// 降级为普通 Cookie 名。生产不设置该环境变量，行为不变。
-	if os.Getenv("CANVAS_OIDC_INSECURE_HOSTS") != "" {
-		name = "yingce-oidc-state"
-		secure = false
-	}
+	secure := oidcStateCookieName() == oidcStateCookie
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name: name, Value: value, Path: "/",
+		Name: oidcStateCookieName(), Value: value, Path: "/",
 		MaxAge: maxAge, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
 	})
 }
