@@ -186,7 +186,7 @@ func (s *Service) providerCancellationInput(task *model.Task) (canvasGenerationI
 	if err := json.Unmarshal([]byte(decrypted), &input); err != nil {
 		return canvasGenerationInput{}, err
 	}
-	config, err := s.resolveProviderConfig(input.Config)
+	config, err := s.resolveProviderConfig(task.UserID, input.Config)
 	if err != nil {
 		return canvasGenerationInput{}, err
 	}

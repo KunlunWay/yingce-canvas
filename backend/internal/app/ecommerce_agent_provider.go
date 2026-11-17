@@ -169,7 +169,7 @@ func (s *Service) ecommerceConfiguredTextFor(userID string, cfg ecommerceProvide
 	if err := access.requireChannel(channelID); err != nil {
 		return cfg, err
 	}
-	resolved, err := s.resolveProviderConfig(providerConfig{ChannelID: channelID, ChannelModelKey: modelKey, Model: modelKey})
+	resolved, err := s.resolveProviderConfig("", providerConfig{ChannelID: channelID, ChannelModelKey: modelKey, Model: modelKey})
 	if err != nil {
 		return cfg, ecommerceErr("UNAVAILABLE", "电商 Agent "+stage+"渠道不可用")
 	}

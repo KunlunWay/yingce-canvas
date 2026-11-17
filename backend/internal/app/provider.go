@@ -166,7 +166,7 @@ func (s *Service) processCanvasGenerationTask(ctx context.Context, userID string
 		return nil, err
 	}
 	input.Prompt = resolved
-	config, err := s.resolveProviderConfig(input.Config)
+	config, err := s.resolveProviderConfig(userID, input.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func providerPrefersMediaURLs(interfaceType string, input canvasGenerationInput)
 	return false
 }
 
-func (s *Service) resolveProviderConfig(config providerConfig) (providerConfig, error) {
+func (s *Service) resolveProviderConfig(userID string, config providerConfig) (providerConfig, error) {
 	headers, err := NormalizeOutboundHeaders(config.Headers)
 	if err != nil {
 		return providerConfig{}, err
@@ -433,6 +433,12 @@ func (s *Service) resolveProviderConfig(config providerConfig) (providerConfig, 
 	config.BaseURL = channel.BaseURL
 	config.APIKey = channel.APIKey
 	config.SecretKey = channel.SecretKey
+	// GlowPix 计费接缝：命中平台网关渠道时改用该用户自己的网关 token，
+	// 用量计入用户额度（蓝图 §15 二期）。无 token 时保持系统渠道 key。
+	if userToken := s.gatewayBillingTokenFor(userID, channel); userToken != "" {
+		config.APIKey = userToken
+		config.SecretKey = ""
+	}
 	config.Headers, err = ParseOutboundHeadersJSON(channel.HeadersJSON)
 	if err != nil {
 		return providerConfig{}, err

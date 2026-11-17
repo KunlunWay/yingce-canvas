@@ -372,7 +372,7 @@ func (s *Service) ecommerceLiveImageConfig(req ecommerceagent.Request, cfg ecomm
 	if err != nil || profile == nil || profile.Image == nil || profile.Image.References.MaxImages < 1 {
 		return cfg, ecommerceErr("INVALID_INPUT", "图像模型未配置商品图编辑能力")
 	}
-	provider, err := s.resolveProviderConfig(providerConfig{ChannelID: channelID, ChannelModelKey: modelKey, Model: modelKey})
+	provider, err := s.resolveProviderConfig("", providerConfig{ChannelID: channelID, ChannelModelKey: modelKey, Model: modelKey})
 	if err != nil {
 		return cfg, ecommerceErr("INVALID_INPUT", "出图渠道配置不可用")
 	}

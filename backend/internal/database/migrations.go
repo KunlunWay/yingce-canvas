@@ -706,6 +706,7 @@ var yingceSchemaMigrations = []migration{
 		return tx.AutoMigrate(&model.OfficialAssetRecommendation{}, &model.OfficialAsset{})
 	}},
 	{version: 4, name: "official_recommendation_consent", checksum: "sha256:official-recommendation-consent-v64-20261031", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.OfficialAssetRecommendation{}) }},
+	{version: 5, name: "gateway_billing_tokens", checksum: "sha256:glowpix-gateway-billing-tokens-v5-20261117", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.GatewayBillingToken{}) }},
 }
 
 // migrateDramaCastVoiceLooks 为短剧设定补角色声音（声音库条目与样本音频）和造型（所属角色、造型名、默认适用章节）。

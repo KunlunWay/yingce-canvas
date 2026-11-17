@@ -588,7 +588,7 @@ func TestResolveProviderConfigMapsSKUToProviderModel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config, err := svc.resolveProviderConfig(providerConfig{ChannelID: channel.ID, Model: item.ModelKey})
+	config, err := svc.resolveProviderConfig("", providerConfig{ChannelID: channel.ID, Model: item.ModelKey})
 	if err != nil {
 		t.Fatal(err)
 	}

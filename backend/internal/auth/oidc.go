@@ -17,6 +17,7 @@ import (
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 
+	"yingce/backend/internal/gatewaybilling"
 	"yingce/backend/internal/kernel"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/outbound"
@@ -220,8 +221,27 @@ func (s *Service) CompleteOIDCLogin(ctx context.Context, stateValue, code string
 	}
 	// sub 只在签发方内唯一。固定长度摘要复用现有身份字段，切换签发方也不会串号。
 	subject := HashToken(cfg.issuer + "\x00" + idToken.Subject)
-	return s.finishOAuthLogin(state, event, oauthProfile{
+	result, err = s.finishOAuthLogin(state, event, oauthProfile{
 		provider: oidcProvider, subject: subject, username: kernel.TruncateRunes(claims.PreferredUsername, 160),
 		name: kernel.FirstNonEmpty(claims.Name, claims.PreferredUsername, "OIDC 用户"), email: email,
 	}, cfg.allowedGroup != "")
+	// GlowPix 平台计费接缝：OIDC 登录成功后为该平台用户配发网关 token。
+	// 后台执行，配发失败不阻塞登录（下次登录会重试）。
+	if err == nil && gatewaybilling.Enabled() {
+		if identity, lookupErr := s.repo.UserIdentity(oidcProvider, subject); lookupErr == nil {
+			go s.provisionGatewayBillingToken(identity.UserID, idToken.Subject)
+		}
+	}
+	return result, err
+}
+
+// provisionGatewayBillingToken 配发并落库平台网关计费 token（fork 集成）。
+func (s *Service) provisionGatewayBillingToken(userID string, gatewaySubject string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	token, err := gatewaybilling.ProvisionToken(ctx, gatewaySubject)
+	if err != nil {
+		return
+	}
+	_ = s.repo.SaveGatewayBillingToken(userID, token)
 }

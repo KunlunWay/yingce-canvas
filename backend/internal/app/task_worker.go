@@ -477,7 +477,7 @@ func (s *Service) shouldDeferProviderTask(task model.Task, decryptedInput string
 	if json.Unmarshal([]byte(decryptedInput), &input) != nil {
 		return false
 	}
-	resolved, resolveErr := s.resolveProviderConfig(input.Config)
+	resolved, resolveErr := s.resolveProviderConfig(task.UserID, input.Config)
 	if resolveErr != nil {
 		return false
 	}
