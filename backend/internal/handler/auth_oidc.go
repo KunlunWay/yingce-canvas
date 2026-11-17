@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,8 +66,16 @@ func registerOIDCRoutes(r *gin.RouterGroup, svc *service.Service) {
 
 // 回调只能使用发起登录的浏览器中保存的状态，避免登录 CSRF。
 func setOIDCStateCookie(c *gin.Context, value string, maxAge int) {
+	name := oidcStateCookie
+	secure := true
+	// __Host- 前缀与 Secure 在 http 下会被浏览器拒收；影子联调（白名单主机 http OIDC）
+	// 降级为普通 Cookie 名。生产不设置该环境变量，行为不变。
+	if os.Getenv("CANVAS_OIDC_INSECURE_HOSTS") != "" {
+		name = "yingce-oidc-state"
+		secure = false
+	}
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name: oidcStateCookie, Value: value, Path: "/",
-		MaxAge: maxAge, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+		Name: name, Value: value, Path: "/",
+		MaxAge: maxAge, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
 	})
 }
