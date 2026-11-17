@@ -48,7 +48,32 @@ func (cfg oidcConfig) enabled() bool {
 
 func validOIDCURL(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == ""
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	return u.Scheme == "http" && insecureOIDCHostAllowed(raw)
+}
+
+// CANVAS_OIDC_INSECURE_HOSTS 是逗号分隔的主机名白名单：仅影子/联调环境使用，
+// 允许这些主机的 OIDC 发现走 http 并跳过出站地址校验。生产不得设置。
+func insecureOIDCHostAllowed(raw string) bool {
+	list := os.Getenv("CANVAS_OIDC_INSECURE_HOSTS")
+	if list == "" {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	for host := range strings.SplitSeq(list, ",") {
+		if strings.TrimSpace(host) == u.Hostname() {
+			return true
+		}
+	}
+	return false
 }
 
 func (cfg oidcConfig) discover(ctx context.Context) (*oidc.Provider, oauth2.Config, error) {
@@ -69,11 +94,13 @@ func (cfg oidcConfig) discover(ctx context.Context) (*oidc.Provider, oauth2.Conf
 type oidcTransport struct{ base http.RoundTripper }
 
 func (t oidcTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.Scheme != "https" {
-		return nil, errors.New("OIDC 提供方必须使用 HTTPS")
-	}
-	if _, err := outbound.ValidateOutboundURL(req.URL.String()); err != nil {
-		return nil, err
+	if !insecureOIDCHostAllowed(req.URL.String()) {
+		if req.URL.Scheme != "https" {
+			return nil, errors.New("OIDC 提供方必须使用 HTTPS")
+		}
+		if _, err := outbound.ValidateOutboundURL(req.URL.String()); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
