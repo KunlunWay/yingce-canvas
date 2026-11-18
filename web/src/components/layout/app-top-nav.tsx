@@ -12,6 +12,7 @@ import { WorkspaceStorageLimitNotice } from "@/components/layout/workspace-stora
 import { WorkspaceWalletHost } from "@/components/layout/workspace-wallet-modal";
 import { GenerationSuccessNotifier } from "@/components/layout/generation-success-notifier";
 import { useWorkspaceDocumentTitle } from "@/hooks/use-workspace-document-title";
+import { embedParentOrigin, isEmbedMode } from "@/lib/embed-mode";
 import { cn } from "@/lib/utils";
 import { isSpatialWorkbenchPath } from "@/lib/workspace-routes";
 
@@ -30,6 +31,14 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     const showGlobalTopBar = !hideChrome;
     const spatialWorkbench = isSpatialWorkbenchPath(pathname);
     const creationWorkspace = pathname === "/" || pathname === "/create";
+    // 嵌入模式：宿主平台提供侧栏，这里隐藏自带侧栏、保留顶栏。
+    const embed = isEmbedMode();
+
+    // 路由变化回传宿主，宿主侧栏高亮与浏览器前进/后退随之同步。
+    useEffect(() => {
+        if (!embed || window.parent === window) return;
+        window.parent.postMessage({ source: "yingce-embed", path: pathname }, embedParentOrigin());
+    }, [embed, pathname]);
 
     const isMobileViewport = () => window.innerWidth < 1024;
 
@@ -85,13 +94,13 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     return (
         <>
             <WorkspaceTopBarExtensionProvider>
-                <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")}>
-                    {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label={t("shell.collapseSidebar")} onClick={() => setMobileSidebarExpanded(false)} /> : null}
+                <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace", embed && "is-embed")}>
+                    {!hideChrome && !embed && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label={t("shell.collapseSidebar")} onClick={() => setMobileSidebarExpanded(false)} /> : null}
 
                     {showGlobalTopBar ? <BannerAnnouncementsSlider /> : null}
 
                     <div className="app-workspace-main-row flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                        {!hideChrome ? (
+                        {!hideChrome && !embed ? (
                             <aside
                                 className={cn(
                                     "app-workspace-sidebar flex h-full shrink-0 flex-col overflow-hidden",

@@ -1029,3 +1029,6 @@
     .app-user-workspace .app-workspace-nav-icon,
     .app-user-workspace .app-workspace-nav-icon svg { animation: none !important; transform: none !important; }
 }
+
+/* 嵌入模式：自带侧栏已由宿主壳替代，顶栏的侧栏切换按钮一并隐藏，避免死按钮。 */
+.app-workspace-shell.is-embed .app-workspace-mobile-menu { display: none !important; }

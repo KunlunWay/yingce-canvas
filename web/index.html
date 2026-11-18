@@ -80,8 +80,12 @@
         </style>
         <script>
             try {
+                var embed = new URLSearchParams(location.search).get("embed") === "1";
+                try { if (embed) sessionStorage.setItem("yingce:embed", "1"); else embed = sessionStorage.getItem("yingce:embed") === "1"; } catch (e2) {}
                 var s = JSON.parse(localStorage.getItem("yingce:theme_store") || "{}");
-                var t = s.state && s.state.theme === "dark" ? "dark" : "light";
+                var stored = s.state && s.state.theme;
+                // 嵌入模式下未显式选过主题时默认暗色，与宿主深色壳保持一致；显式选择始终优先。
+                var t = stored === "dark" || stored === "light" ? stored : (embed ? "dark" : "light");
                 document.documentElement.classList.toggle("dark", t === "dark");
                 document.documentElement.style.colorScheme = t;
             } catch (e) {}
