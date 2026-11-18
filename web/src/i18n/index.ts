@@ -1,6 +1,7 @@
 import i18next, { type Resource } from "i18next";
 import { initReactI18next } from "react-i18next";
 
+import { appLocaleFromHost, appLocaleToHost, embedParentOrigin, isEmbedMode } from "@/lib/embed-mode";
 import { useLocaleStore } from "@/stores/use-locale-store";
 import { AREA_CATALOGS } from "./areas";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type AppLocale } from "./locales";
@@ -38,6 +39,15 @@ function buildResources(): Resource {
  */
 export const i18n = i18next.createInstance();
 
+// 嵌入模式：宿主语言是权威来源。URL 的 lang 参数在 i18n 初始化前写入 store，
+// 保证首帧语言与宿主一致（persist 同步落盘，整页刷新后仍保持）。
+if (typeof window !== "undefined" && isEmbedMode()) {
+    const langParam = appLocaleFromHost(new URLSearchParams(window.location.search).get("lang"));
+    if (langParam && langParam !== useLocaleStore.getState().locale) {
+        useLocaleStore.getState().setLocale(langParam);
+    }
+}
+
 void i18n.use(initReactI18next).init({
     resources: buildResources(),
     lng: useLocaleStore.getState().locale,
@@ -50,6 +60,25 @@ void i18n.use(initReactI18next).init({
 useLocaleStore.subscribe((state, previous) => {
     if (state.locale !== previous.locale) void i18n.changeLanguage(state.locale);
 });
+
+// 嵌入模式语言双向同步：宿主切换 → postMessage 进来走 switchLocale（整页刷新保持单语言）；
+// 本应用内切换（顶栏语言菜单）→ postMessage 回传宿主。
+if (typeof window !== "undefined" && isEmbedMode() && window.parent !== window) {
+    window.addEventListener("message", (event) => {
+        if (event.origin !== embedParentOrigin()) return;
+        const data = event.data as { source?: string; type?: string; locale?: string } | null;
+        if (data?.source !== "glowpix-host" || data.type !== "set-locale") return;
+        const next = appLocaleFromHost(data.locale);
+        if (next) switchLocale(next);
+    });
+    useLocaleStore.subscribe((state, previous) => {
+        if (state.locale === previous.locale) return;
+        window.parent.postMessage(
+            { source: "yingce-embed", type: "locale", locale: appLocaleToHost(state.locale) },
+            embedParentOrigin(),
+        );
+    });
+}
 
 /** 当前界面语言；用于 Intl 日期与数字格式化。 */
 export function currentLocale(): AppLocale {
